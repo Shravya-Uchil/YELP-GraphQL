@@ -1,14 +1,18 @@
 import React, { Component } from 'react';
 import { Redirect } from 'react-router';
 import NavBar from '../LandingPage/Navbar.js';
-
+import Geocode from 'react-geocode';
 import { graphql } from 'react-apollo';
-import { customerSignupMutation } from '../../mutation/mutations';
+import { restaurantSignupMutation } from '../../mutation/mutations';
 
-class Create extends Component {
+Geocode.setApiKey('AIzaSyAIzrgRfxiIcZhQe3Qf5rIIRx6exhZPwwE');
+Geocode.setLanguage('en');
+Geocode.setRegion('us');
+
+class RestaurantCreate extends Component {
   constructor(props) {
     super(props);
-    this.state = { message: '' };
+    this.state = {};
   }
 
   onChange = (e) => {
@@ -18,50 +22,62 @@ class Create extends Component {
   };
 
   onSubmit = async (e) => {
+    console.log('Submitting restaurant info');
     //prevent page from refresh
     e.preventDefault();
 
-    console.log('P1:' + this.state.UPassword);
-    console.log('P2:' + this.state.UPasswordRe);
-    if (this.state.UPassword !== this.state.UPasswordRe) {
-      alert('Password miss match!!!');
+    if (this.state.password !== this.state.passwordRe) {
+      alert('Passwords do not match!!!');
       return;
     }
 
-    let mutationResponse = await this.props.customerSignupMutation({
-      variables: {
-        cust_name: this.state.UFName + ' ' + this.state.ULName,
-        email_id: this.state.UEmail,
-        password: this.state.UPassword,
-      },
-    });
-    let response = mutationResponse.data.customerSignup;
-    if (response) {
-      this.setState({
-        message: response.message,
-        signupDone: 1,
-      });
-    }
-  };
+    Geocode.fromAddress(this.state.zipcode).then(
+      async (resp) => {
+        console.log('Locations');
+        console.log(resp.results[0].geometry);
 
+        let mutationResponse = await this.props.restaurantSignupMutation({
+          variables: {
+            restaurant_name: this.state.restName,
+            email_id: this.state.email_id,
+            password: this.state.password,
+            zip_code: this.state.zipcode,
+            lat: resp.results[0].geometry.location.lat,
+            lng: resp.results[0].geometry.location.lng,
+          },
+        });
+        let response = mutationResponse.data.restaurantSignup;
+
+        if (response) {
+          this.setState({
+            message: response.message,
+            signupDone: 1,
+          });
+        }
+      },
+      (error) => {
+        console.error(error);
+        alert('Please enter a valid zip code');
+      }
+    );
+  };
   render() {
     let redirectVar = null;
     let message = '';
-    console.log('Signup render');
-    console.log(this.props);
-    if (localStorage.getItem('customer_id')) {
+    console.log('Restaurant Signup render');
+    if (localStorage.getItem('restaurant_id')) {
       redirectVar = <Redirect to='/home' />;
     } else if (
-      this.state.message === 'CUSTOMER_ADDED' &&
+      this.state.message === 'RESTAURANT_ADDED' &&
       this.state.signupDone
     ) {
       alert('Registration successful!');
       redirectVar = <Redirect to='/login' />;
     } else if (
-      this.state.message === 'CUSTOMER_EXISTS' &&
+      this.state.message === 'RESTAURANT_EXISTS' &&
       this.state.signupDone
     ) {
-      message = 'Email id is already registered!';
+      message = 'This Restaurant is already on Yelp!';
     } else if (
       this.state.message === 'INTERNAL_SERVER_ERROR' &&
       this.state.signupDone
@@ -82,10 +98,10 @@ class Create extends Component {
                 <input
                   type='text'
                   class='form-control'
-                  name='UFName'
+                  name='restName'
                   onChange={this.onChange}
-                  id='UFName'
-                  placeholder='First Name'
+                  id='restName'
+                  placeholder='Restaurant Name'
                   required
                 />
               </div>
@@ -94,10 +110,10 @@ class Create extends Component {
                 <input
                   type='text'
                   class='form-control'
-                  name='ULName'
+                  name='zipcode'
                   onChange={this.onChange}
-                  id='ULName'
-                  placeholder='Last Name'
+                  id='zipcode'
+                  placeholder='Location (Enter Zip Code)'
                   required
                 />
               </div>
@@ -106,9 +122,9 @@ class Create extends Component {
                 <input
                   type='text'
                   class='form-control'
-                  name='UEmail'
+                  name='email_id'
                   onChange={this.onChange}
-                  id='UEmail'
+                  id='email_id'
                   placeholder='Email Id'
                   required
                 />
@@ -118,9 +134,9 @@ class Create extends Component {
                 <input
                   type='password'
                   class='form-control'
-                  name='UPassword'
+                  name='password'
                   onChange={this.onChange}
-                  id='UPassword'
+                  id='password'
                   placeholder='Password'
                   required
                 />
@@ -130,10 +146,10 @@ class Create extends Component {
                 <input
                   type='password'
                   class='form-control'
-                  name='UPasswordRe'
+                  name='passwordRe'
                   onChange={this.onChange}
-                  id='UPasswordRe'
-                  placeholder='Re enter Password'
+                  id='passwordRe'
+                  placeholder='Re Enter Password'
                   required
                 />
               </div>
@@ -153,6 +169,6 @@ class Create extends Component {
   }
 }
 
-export default graphql(customerSignupMutation, {
-  name: 'customerSignupMutation',
-})(Create);
+export default graphql(restaurantSignupMutation, {
+  name: 'restaurantSignupMutation',
+})(RestaurantCreate);

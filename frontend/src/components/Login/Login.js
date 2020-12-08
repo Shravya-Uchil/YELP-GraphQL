@@ -2,15 +2,10 @@ import React, { Component } from 'react';
 import '../../App.css';
 import { Link } from 'react-router-dom';
 import { Redirect } from 'react-router';
-//import PropTypes from "prop-types";
-//import { connect } from "react-redux";
-//import { customerLogin } from "../../actions/loginActions";
 import NavBar from '../LandingPage/Navbar.js';
-//import serverAddress from '../../config';
 import jwt_decode from 'jwt-decode';
 import { graphql } from 'react-apollo';
 import { loginMutation } from '../../mutation/mutations';
-//import classnames from 'classnames';
 
 //Define a Login Component
 class Login extends Component {
@@ -42,9 +37,6 @@ class Login extends Component {
     if (response) {
       if (response.status === '200') {
         var decoded = jwt_decode(response.message.split(' ')[1]);
-        console.log('decoded token');
-        console.log(response.message);
-        console.log(decoded);
         localStorage.setItem('token', response.message);
         if (decoded.login_type === 0) {
           localStorage.setItem('email_id', decoded.email_id);
@@ -73,57 +65,8 @@ class Login extends Component {
     }
   };
 
-  /*submitLogin = (e) => {
-    e.preventDefault();
-    let typeVal = document.getElementById('login_type').value;
-
-    let data = Object.assign({}, this.state);
-    const data = {
-      email_id: this.state.email_id,
-      password: this.state.password,
-    };
-    this.props.customerLogin(data, typeVal);
-    this.setState({
-      loginDoneOnce: 1,
-    });
-
-    e.preventDefault();
-    const data = {
-      email_id: this.state.email_id,
-      password: this.state.password,
-    };
-    axios.defaults.withCredentials = true;
-    //make a post request with the user data
-    axios
-      .post("${serverAddress}/yelp/login", data)
-      .then((response) => {
-        console.log("Status Code : ", response.status);
-        if (response.status === 200) {
-          localStorage.setItem("email_id", this.state.email_id);
-          this.props.history.replace("/home");
-        } else {
-          alert("status not 200!!!");
-        }
-      })
-      .catch((e) => {
-        console.log(e);
-        alert("Invalid username or password!!!");
-      });
-  };*/
-
-  /*componentWillReceiveProps(nextProps) {
-    console.log("We in props received, next prop is: ", nextProps);
-    console.log(this.state);
-    console.log("Myprops: ", this.props);
-    if (nextProps.customer) {
-      var { customer } = nextProps.customer;
-      this.setState(customer);
-    }
-  }*/
-
   render() {
     console.log('Login render');
-    //console.log(this.props);
     let message = '';
     let redirectVar = null;
     if (this.state.message === 'NO_RECORD' && this.state.loginDoneOnce) {

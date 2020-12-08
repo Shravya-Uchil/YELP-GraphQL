@@ -6,19 +6,35 @@ const {
   GraphQLSchema,
   GraphQLID,
   GraphQLInt,
+  GraphQLFloat,
   GraphQLList,
   GraphQLNonNull,
+  GraphQLBoolean,
+  GraphQLInputObjectType,
 } = graphql;
-const Customers = require('../models/customer');
-const Restaurants = require('../models/restaurant');
 const { customerSignup, restaurantSignup } = require('../mutations/signup');
 const { login } = require('../mutations/login');
 const Customer = require('../models/customer');
+const Restaurant = require('../models/restaurant');
+const MenuItemSchema = require('../models/menu_item');
+const MenuCategory = require('../models/menu_category');
+const Order = require('../models/order');
+const Review = require('../models/review');
+const mongoose = require('mongoose');
+const { customerProfile } = require('../mutations/profile');
+const { restaurantProfile } = require('../mutations/profile');
+const { addReview } = require('../mutations/review');
+const { addItem } = require('../mutations/menu');
+const {
+  placeOrder,
+  updateOrderStatus,
+  updateDeliveryStatus,
+} = require('../mutations/order');
 //const Sections = require('../models/SectionsSchema');
 //const Items = require("../models/ItemsSchema");
 
 const CustomerType = new GraphQLObjectType({
-  name: 'CustomerType',
+  name: 'Customer',
   fields: () => ({
     id: { type: GraphQLString },
     cust_name: { type: GraphQLString },
@@ -35,14 +51,141 @@ const CustomerType = new GraphQLObjectType({
     things_love: { type: GraphQLString },
     find_me: { type: GraphQLString },
     blog_website: { type: GraphQLString },
-    status: { type: GraphQLInt },
     message: { type: GraphQLString },
-    /*order: {
-        type: new GraphQLList(OrderType),
-        resolve(parent, args) {
-            return parent.order;
-        }
-    },*/
+    status: { type: GraphQLString },
+  }),
+});
+
+const RestaurantType = new GraphQLObjectType({
+  name: 'RestaurantType',
+  fields: () => ({
+    id: { type: GraphQLString },
+    restaurant_name: { type: GraphQLString },
+    email_id: { type: GraphQLString },
+    phone_number: { type: GraphQLString },
+
+    description: { type: GraphQLString },
+    open_time: { type: GraphQLString },
+    close_time: { type: GraphQLString },
+    cuisine: { type: GraphQLString },
+    curbside_pickup: { type: GraphQLBoolean },
+    dine_in: { type: GraphQLBoolean },
+    yelp_delivery: { type: GraphQLBoolean },
+    restaurant_image: { type: GraphQLString },
+    lat: { type: GraphQLFloat },
+    lng: { type: GraphQLFloat },
+    //menu_item
+    //menu_category
+    //order
+    restaurant_name: { type: GraphQLString },
+    email_id: { type: GraphQLString },
+    password: { type: GraphQLString },
+    zip_code: { type: GraphQLString },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
+  }),
+});
+
+const MenuItemType = new GraphQLObjectType({
+  name: 'MenuItemType',
+  fields: () => ({
+    id: { type: GraphQLString },
+    item_name: { type: GraphQLString },
+    item_price: { type: GraphQLFloat },
+    item_description: { type: GraphQLString },
+    item_category: { type: GraphQLID },
+    restaurant_id: { type: GraphQLID },
+    item_image: { type: GraphQLString },
+    item_ingredients: { type: GraphQLString },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
+  }),
+});
+
+const MenuItemListType = new GraphQLObjectType({
+  name: 'MenuItemList',
+  fields: () => ({
+    items: { type: new GraphQLList(MenuItemType) },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
+  }),
+});
+
+const OrderItemType = new GraphQLObjectType({
+  name: 'OrderItem',
+  fields: () => ({
+    item_id: { type: MenuItemType },
+    item_quantity: { type: GraphQLInt },
+  }),
+});
+
+const OrderItemInputType = new GraphQLInputObjectType({
+  name: 'OrderItemInput',
+  fields: () => ({
+    item_id: { type: GraphQLString },
+    item_quantity: { type: GraphQLInt },
+  }),
+});
+
+const OrderType = new GraphQLObjectType({
+  name: 'Order',
+  fields: () => ({
+    order_id: { type: GraphQLString },
+    order_type: { type: GraphQLString },
+    order_status: { type: GraphQLString },
+    order_delivery_status: { type: GraphQLString },
+    order_date: { type: GraphQLString },
+    order_cost: { type: GraphQLString },
+    restaurant_id: { type: GraphQLString },
+    customer_id: { type: GraphQLString },
+    order_item: { type: new GraphQLList(OrderItemType) },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
+    restaurant_name: { type: GraphQLString },
+    restaurant_image: { type: GraphQLString },
+    zip_code: { type: GraphQLString },
+    customer_id: { type: GraphQLString },
+    cust_name: { type: GraphQLString },
+    phone_number: { type: GraphQLString },
+    city: { type: GraphQLString },
+  }),
+});
+
+const OrderListType = new GraphQLObjectType({
+  name: 'OrderList',
+  fields: () => ({
+    orders: { type: new GraphQLList(OrderType) },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
+  }),
+});
+
+const MenuCategoryType = new GraphQLObjectType({
+  name: 'MenuCategory',
+  fields: () => ({
+    id: { type: GraphQLString },
+    category_name: { type: GraphQLString },
+    restaurant_id: { type: GraphQLID },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
+  }),
+});
+
+const MenuCategoryListType = new GraphQLObjectType({
+  name: 'MenuCategoryList',
+  fields: () => ({
+    menu_categories: { type: new GraphQLList(MenuCategoryType) },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
+  }),
+});
+
+const AllRestaurantType = new GraphQLObjectType({
+  name: 'AllRestaurant',
+  fields: () => ({
+    restaurants: { type: new GraphQLList(RestaurantType) },
+    message: { type: GraphQLString },
+    status: { type: GraphQLString },
   }),
 });
 
@@ -51,6 +194,27 @@ const StatusType = new GraphQLObjectType({
   fields: () => ({
     status: { type: GraphQLString },
     message: { type: GraphQLString },
+    id: { type: GraphQLString },
+  }),
+});
+
+const ReviewType = new GraphQLObjectType({
+  name: 'Review',
+  fields: () => ({
+    review_text: { type: GraphQLString },
+    review_date: { type: GraphQLString },
+    review_rating: { type: GraphQLInt },
+    customer_id: { type: CustomerType },
+    restaurant_id: { type: RestaurantType },
+  }),
+});
+
+const ReviewListType = new GraphQLObjectType({
+  name: 'ReviewList',
+  fields: () => ({
+    reviews: { type: new GraphQLList(ReviewType) },
+    message: { type: GraphQLString },
+    status: { type: GraphQLInt },
   }),
 });
 
@@ -60,14 +224,323 @@ const RootQuery = new GraphQLObjectType({
     customer: {
       type: CustomerType,
       args: {
-        id: {
+        customer_id: {
           type: GraphQLString,
         },
       },
       async resolve(parent, args) {
-        let customer = await Customer.findById(args.id);
-        if (customer) {
-          return customer;
+        console.log(args.customer_id);
+        let result = await Customer.findById(
+          mongoose.Types.ObjectId(args.customer_id)
+        );
+        console.log(result);
+        if (result) {
+          result['status'] = 200;
+          return result;
+        } else {
+          console.log('hererere');
+          return { message: 'NO_RECORD', status: 401 };
+        }
+      },
+    },
+
+    allRestaurant: {
+      type: AllRestaurantType,
+      args: {
+        search_str: {
+          type: GraphQLString,
+        },
+      },
+      async resolve(parent, args) {
+        let restaurant = null;
+        if (args.search_str != '_') {
+          console.log('inside seach_str !=0');
+          restaurant = await Restaurant.find({
+            $or: [
+              { restaurant_name: new RegExp(args.search_str, 'gi') },
+              { description: new RegExp(args.search_str, 'gi') },
+              { cuisine: new RegExp(args.search_str, 'gi') },
+              {
+                'menu_category.category_name': new RegExp(
+                  args.search_str,
+                  'gi'
+                ),
+              },
+              { 'menu_item.item_name': new RegExp(args.search_str, 'gi') },
+              {
+                'menu_item.item_description': new RegExp(args.search_str, 'gi'),
+              },
+            ],
+          });
+        } else {
+          console.log('Find all restaurants');
+          restaurant = await Restaurant.find();
+        }
+        if (restaurant && restaurant.length > 0) {
+          console.log('Found restaurants... ');
+          result = {
+            restaurants: restaurant,
+            status: 200,
+            message: 'RESTAURANT_FOUND',
+          };
+          return result;
+        } else {
+          return { message: 'NO_RECORD', status: 401 };
+        }
+      },
+    },
+
+    restaurant: {
+      type: RestaurantType,
+      args: {
+        restaurant_id: {
+          type: GraphQLString,
+        },
+      },
+      async resolve(parent, args) {
+        console.log(args.restaurant_id);
+        let result = await Restaurant.findById(
+          mongoose.Types.ObjectId(args.restaurant_id)
+        );
+        console.log(result);
+        if (result) {
+          result['status'] = 200;
+          return result;
+        } else {
+          return { message: 'NO_RECORD', status: 401 };
+        }
+      },
+    },
+
+    menuItem: {
+      type: MenuItemListType,
+      args: {
+        restaurant_id: { type: GraphQLString },
+      },
+      async resolve(parent, args) {
+        console.log('Get items by restaurant id: ', args);
+        try {
+          let item = await MenuItemSchema.find({
+            restaurant_id: args.restaurant_id,
+          });
+          if (item && item.length > 0) {
+            console.log('item');
+            console.log(item);
+            var result = {
+              items: item,
+              status: 200,
+            };
+            return result;
+          } else {
+            return { message: 'NO_RECORD', status: 401 };
+          }
+        } catch (error) {
+          console.log(error);
+          return { message: 'Error in data', status: 500 };
+        }
+      },
+    },
+
+    menuCategory: {
+      type: MenuCategoryListType,
+      args: {
+        restaurant_id: { type: GraphQLString },
+      },
+      async resolve(parent, args) {
+        console.log('Get menu categories by restaurant id: ', args);
+        try {
+          let category = await MenuCategory.find({
+            restaurant_id: args.restaurant_id,
+          });
+          console.log('category');
+          console.log(category);
+          if (category && category.length > 0) {
+            console.log('category');
+            console.log(category);
+            var result = {
+              menu_categories: category,
+              status: 200,
+            };
+            console.log(result);
+            return result;
+          } else {
+            return { message: 'NO_RECORD', status: 401 };
+          }
+        } catch (error) {
+          console.log(error);
+          return { message: 'Error in data', status: 500 };
+        }
+      },
+    },
+
+    menuCategoryById: {
+      type: MenuCategoryType,
+      args: {
+        menu_category_id: { type: GraphQLString },
+      },
+      async resolve(parent, args) {
+        console.log('Get menu categories by id: ', args);
+        try {
+          let category = await MenuCategory.findById(args.menu_category_id);
+          if (category) {
+            console.log('category');
+            console.log(category);
+            category['status'] = 200;
+
+            return category;
+          } else {
+            return { message: 'NO_RECORD', status: 401 };
+          }
+        } catch (error) {
+          console.log(error);
+          return { message: 'Error in data', status: 500 };
+        }
+      },
+    },
+
+    restaurantReview: {
+      type: ReviewListType,
+      args: {
+        restaurant_id: { type: GraphQLString },
+      },
+      async resolve(parent, args) {
+        console.log('Get restaurant review by id: ', args);
+        try {
+          let review = await Review.find({
+            restaurant_id: args.restaurant_id,
+          });
+          let i = 0;
+          for (i = 0; i < review.length; i++) {
+            await review[i]
+              .populate('customer_id')
+              .populate('restaurant_id')
+              .execPopulate();
+          }
+          if (review) {
+            console.log(review);
+            var result = {
+              reviews: review,
+              message: 'RESTAURANT_REVIEW',
+              status: 200,
+            };
+            return result;
+          } else {
+            return { message: 'NO_RECORD', status: 401 };
+          }
+        } catch (error) {
+          console.log(error);
+          return { message: 'Error in data', status: 500 };
+        }
+      },
+    },
+
+    customerOrder: {
+      type: OrderListType,
+      args: {
+        customer_id: { type: GraphQLString },
+      },
+      async resolve(parent, args) {
+        console.log('Get customer orders: ', args);
+        try {
+          let customer = await Customer.findById(args.customer_id);
+          if (!customer) {
+            return { status: 500, message: 'Error in data' };
+          }
+          let orders = await Order.find({ customer_id: args.customer_id });
+          if (orders) {
+            console.log('orders');
+            console.log(orders);
+            let data = [];
+            for (let i = 0; i < orders.length; i++) {
+              let restaurant = await Restaurant.findById(
+                orders[i].restaurant_id
+              );
+              if (!restaurant) {
+                return { status: 500, message: 'Error in data' };
+              }
+              let schema = {
+                order_id: orders[i]._id,
+                restaurant_id: orders[i].restaurant_id,
+                order_status: orders[i].order_status,
+                order_date: orders[i].order_date,
+                order_cost: orders[i].order_cost,
+                order_delivery_status: orders[i].order_delivery_status,
+                order_type: orders[i].order_type,
+                restaurant_name: restaurant.restaurant_name,
+                zip_code: restaurant.zip_code,
+                customer_id: customer._id,
+                cust_name: customer.cust_name,
+                phone_number: customer.phone_number,
+                city: customer.city,
+              };
+              data.push(schema);
+            }
+            var result = {
+              orders: data,
+              status: 200,
+            };
+            return result;
+          } else {
+            return { status: 500, mmessage: 'NO_RECORD' };
+          }
+        } catch (error) {
+          console.log(error);
+          return { status: 500, mmessage: 'Err in Data' };
+        }
+      },
+    },
+
+    restaurantOrder: {
+      type: OrderListType,
+      args: {
+        restaurant_id: { type: GraphQLString },
+      },
+      async resolve(parent, args) {
+        console.log('Get restaurant orders: ', args);
+        try {
+          let restaurant = await Restaurant.findById(args.restaurant_id);
+          if (!restaurant) {
+            return { status: 500, message: 'Error in data' };
+          }
+          let orders = await Order.find({ restaurant_id: args.restaurant_id });
+          if (orders) {
+            console.log('orders');
+            console.log(orders);
+            let data = [];
+            for (let i = 0; i < orders.length; i++) {
+              let customer = await Customer.findById(orders[i].customer_id);
+              if (!customer) {
+                return { status: 500, message: 'Error in data' };
+              }
+              let schema = {
+                order_id: orders[i]._id,
+                restaurant_id: orders[i].restaurant_id,
+                order_status: orders[i].order_status,
+                order_date: orders[i].order_date,
+                order_cost: orders[i].order_cost,
+                order_delivery_status: orders[i].order_delivery_status,
+                order_type: orders[i].order_type,
+                restaurant_name: restaurant.restaurant_name,
+                restaurant_image: restaurant.restaurant_image,
+                zip_code: restaurant.zip_code,
+                customer_id: customer._id,
+                cust_name: customer.cust_name,
+                phone_number: customer.phone_number,
+                city: customer.city,
+              };
+              data.push(schema);
+            }
+            var result = {
+              orders: data,
+              status: 200,
+            };
+            return result;
+          } else {
+            return { status: 500, mmessage: 'NO_RECORD' };
+          }
+        } catch (error) {
+          console.log(error);
+          return { status: 500, mmessage: 'Err in Data' };
         }
       },
     },
@@ -88,7 +561,20 @@ const Mutation = new GraphQLObjectType({
         return customerSignup(args);
       },
     },
-
+    restaurantSignup: {
+      type: StatusType,
+      args: {
+        restaurant_name: { type: GraphQLString },
+        email_id: { type: GraphQLString },
+        password: { type: GraphQLString },
+        zip_code: { type: GraphQLString },
+        lat: { type: GraphQLFloat },
+        lng: { type: GraphQLFloat },
+      },
+      async resolve(parent, args) {
+        return restaurantSignup(args);
+      },
+    },
     login: {
       type: StatusType,
       args: {
@@ -100,816 +586,121 @@ const Mutation = new GraphQLObjectType({
         return login(args);
       },
     },
-  },
-});
-/*const OwnerProfileType = new GraphQLObjectType({
-  name: 'OwnerProfile',
-  fields: () => ({
-    ownerId: { type: GraphQLString },
-    restaurantId: { type: GraphQLString },
-    firstname: { type: GraphQLString },
-    lastname: { type: GraphQLString },
-    email: { type: GraphQLString },
-    phone: { type: GraphQLString },
-    rname: { type: GraphQLString },
-    cuisine: { type: GraphQLString },
-    zipcode: { type: GraphQLString },
-    status: { type: GraphQLInt },
-    message: { type: GraphQLString },
-  }),
-});
-const ItemType = new graphql.GraphQLObjectType({
-  name: 'Item',
-  fields: function () {
-    return {
-      itemName: {
-        type: graphql.GraphQLString,
-      },
-      itemDescription: {
-        type: graphql.GraphQLString,
-      },
-      price: {
-        type: graphql.GraphQLString,
-      },
-    };
-  },
-});
-const OwnerSectionType = new GraphQLObjectType({
-  name: 'OwnerSection',
-  fields: () => ({
-    _id: { type: GraphQLString },
-    section_name: { type: GraphQLString },
-    items: { type: new GraphQLList(ItemType) },
-    email: { type: GraphQLString },
-    status: { type: GraphQLInt },
-    message: { type: GraphQLString },
-  }),
-});
-const SectionsFetchType = new GraphQLObjectType({
-  name: 'SectionsFetch',
-  fields: () => ({
-    sections: { type: new GraphQLList(OwnerSectionType) },
-  }),
-});
 
-const RootQuery = new GraphQLObjectType({
-  name: 'RootQueryType',
-  fields: {
-    ownerProfilefetch: {
-      type: OwnerProfileType,
+    customerProfile: {
+      type: StatusType,
       args: {
-        email: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        console.log('eee' + JSON.stringify(args));
-        var l = args.email;
-        console.log('emailemailemailemail' + l);
-        return new Promise((resolve, reject) => {
-          Owners.findOne({ email: l }, function (err, owner) {
-            if (err) {
-              console.log(err);
-              console.log('Owner not found');
-              let result = {
-                message: 'Owner not found',
-                status: 400,
-              };
-              resolve(result);
-            } else {
-              console.log('Owner profile fetch Successful');
-              console.log('****' + args.email);
-              console.log('owner' + JSON.stringify(owner));
-              Restaurants.findOne(
-                { email: owner.email },
-                function (err, restaurant) {
-                  if (err) {
-                    console.log(err);
-                    console.log('Restaurant not found');
-                    let result = {
-                      status: 400,
-                      message: 'Database Error',
-                    };
-                    resolve(result);
-                  } else {
-                    console.log('restaurant:', restaurant);
-                    console.log('Restaurant fetch Successful');
-                    let result = {
-                      ownerId: owner._id,
-                      firstname: owner.first_name,
-                      lastname: owner.last_name,
-                      email: owner.email,
-                      phone: owner.phone_number,
-                      rname: restaurant.restaurant_name,
-                      cuisine: restaurant.cuisine,
-                      zipcode: restaurant.zip_code,
-                      restaurantId: restaurant._id,
-                      status: 200,
-                      message: 'Owner/Rest profile fetched successfully',
-                    };
-                    resolve(result);
-                  }
-                }
-              );
-            }
-          });
-        });
-      },
-    },
-    customerProfilefetch: {
-      type: CustomerProfileType,
-      args: {
-        email: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          Customers.findOne({ email: args.email }, function (err, customer) {
-            if (err) {
-              console.log(err);
-              console.log('Customer not found');
-              let result = {
-                message: 'Customer not found',
-                status: 400,
-              };
-              resolve(result);
-            } else {
-              console.log('user:', customer);
-              console.log('Customer profile fetch Successful');
-              let result = {
-                customerId: customer._id,
-                firstname: customer.first_name,
-                lastname: customer.last_name,
-                email: customer.email,
-                phone: customer.phone_number,
-                status: 200,
-                message: 'Customer profile fetch Successful',
-              };
-              resolve(result);
-            }
-          });
-        });
-      },
-    },
-    sectionFetch: {
-      type: SectionsFetchType,
-      args: {
-        email: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          Sections.find({ email: args.email }, function (err, sections) {
-            if (err) {
-              console.log(err);
-              console.log('Section not found');
-              let result = {
-                message: 'Section not found',
-                status: 400,
-              };
-              resolve(result);
-            } else {
-              console.log('sections:', sections);
-              console.log('Sections fetch Successful');
-              let result = {
-                sections: sections,
-                status: 200,
-                message: 'Customer profile fetch Successful',
-              };
-              resolve(result);
-            }
-          });
-        });
-      },
-    },
-    allSectionFetch: {
-      type: SectionsFetchType,
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          Sections.find({}, function (err, sections) {
-            if (err) {
-              console.log(err);
-              console.log('Section not found');
-              let result = {
-                message: 'Section not found',
-                status: 400,
-              };
-              resolve(result);
-            } else {
-              console.log('sections:', sections);
-              console.log('Sections fetch Successful');
-              let result = {
-                sections: sections,
-                status: 200,
-                message: 'Customer profile fetch Successful',
-              };
-              resolve(result);
-            }
-          });
-        });
-      },
-    },
-  },
-});
-
-const Mutation = new GraphQLObjectType({
-  name: 'Mutation',
-  fields: {
-    ownerSignUp: {
-      type: OwnerLoginType,
-      args: {
-        firstname: { type: GraphQLString },
-        lastname: { type: GraphQLString },
-        email: { type: GraphQLString },
+        customer_id: { type: GraphQLString },
+        email_id: { type: GraphQLString },
+        cust_name: { type: GraphQLString },
+        city: { type: GraphQLString },
+        state: { type: GraphQLString },
+        country: { type: GraphQLString },
+        nick_name: { type: GraphQLString },
+        headline: { type: GraphQLString },
+        yelp_since: { type: GraphQLString },
+        dob: { type: GraphQLString },
+        things_love: { type: GraphQLString },
+        find_me: { type: GraphQLString },
+        blog_website: { type: GraphQLString },
+        phone_number: { type: GraphQLString },
         password: { type: GraphQLString },
-        rname: { type: GraphQLString },
+      },
+      resolve(parent, args) {
+        return customerProfile(args);
+      },
+    },
+
+    restaurantProfile: {
+      type: StatusType,
+      args: {
+        restaurant_id: { type: GraphQLString },
+        email_id: { type: GraphQLString },
+        restaurant_name: { type: GraphQLString },
+        city: { type: GraphQLString },
+        state: { type: GraphQLString },
+        country: { type: GraphQLString },
+        description: { type: GraphQLString },
         cuisine: { type: GraphQLString },
-        zipcode: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          Owners.findOne({ email: args.email }, function (err, rows) {
-            if (err) {
-              console.log(err);
-              console.log('unable to read the database');
-              let result = {
-                cookie1: null,
-                cookie2: null,
-                cookie3: null,
-                cookie4: null,
-                status: 400,
-                message: 'Database Error',
-              };
-              resolve(result);
-            } else {
-              console.log('rows', rows);
-              if (rows) {
-                console.log('Owner already exists');
-                let result = {
-                  cookie1: null,
-                  cookie2: null,
-                  cookie3: null,
-                  cookie4: null,
-                  status: 401,
-                  message: 'Owner already exists',
-                };
-                resolve(result);
-              } else {
-                crypt.createHash(args.password, function (response) {
-                  encryptedPassword = response;
-
-                  var restaurantData = {
-                    restaurant_name: args.rname,
-                    cuisine: args.cuisine,
-                    email: args.email,
-                    zip_code: args.zipcode,
-                  };
-                  var userData = {
-                    first_name: args.firstname,
-                    last_name: args.lastname,
-                    email: args.email,
-                    password: encryptedPassword,
-                  };
-
-                  //Save the owner and restaurant in the database
-                  Owners.create(userData, function (err, user) {
-                    if (err) {
-                      console.log(err);
-                      console.log('unable to update user to owner');
-                      let result = {
-                        cookie1: null,
-                        cookie2: null,
-                        cookie3: null,
-                        cookie4: null,
-                        status: 400,
-                        message: 'Database Error',
-                      };
-                      resolve(result);
-                    } else {
-                      console.log('Owner Added');
-                      Restaurants.create(
-                        restaurantData,
-                        function (err, restaurant) {
-                          if (err) {
-                            console.log(err);
-                            console.log('unable to update user to owner');
-                            let result = {
-                              cookie1: null,
-                              cookie2: null,
-                              cookie3: null,
-                              cookie4: null,
-                              status: 400,
-                              message: 'Database Error',
-                            };
-                            resolve(result);
-                          } else {
-                            console.log('Restaurant Added');
-                            let result = {
-                              cookie1: 'ownercookie',
-                              cookie2: args.email,
-                              cookie3: args.firstname,
-                              cookie4: args.lastname,
-                              status: 200,
-                              message:
-                                'Successfully added the owner and the restaurant',
-                            };
-                            resolve(result);
-                          }
-                        }
-                      );
-                    }
-                  });
-                });
-              }
-            }
-          });
-        });
-      },
-    },
-    customerSignUp: {
-      type: CustomerLoginType,
-      args: {
-        firstname: { type: GraphQLString },
-        lastname: { type: GraphQLString },
-        email: { type: GraphQLString },
+        curbside_pickup: { type: GraphQLBoolean },
+        dine_in: { type: GraphQLBoolean },
+        yelp_delivery: { type: GraphQLBoolean },
+        phone_number: { type: GraphQLString },
         password: { type: GraphQLString },
       },
       resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          Customers.findOne({ email: args.email }, function (err, rows) {
-            if (err) {
-              console.log(err);
-              console.log('unable to read the database');
-              let result = {
-                cookie1: null,
-                cookie2: null,
-                cookie3: null,
-                cookie4: null,
-                status: 400,
-                message: 'Database Error',
-              };
-              resolve(result);
-            } else {
-              console.log('rows', rows);
-              if (rows) {
-                console.log('Customer already exists');
-                let result = {
-                  cookie1: null,
-                  cookie2: null,
-                  cookie3: null,
-                  cookie4: null,
-                  status: 401,
-                  message: 'Customer already exists',
-                };
-                resolve(result);
-              } else {
-                crypt.createHash(args.password, function (response) {
-                  encryptedPassword = response;
-
-                  var userData = {
-                    first_name: args.firstname,
-                    last_name: args.lastname,
-                    email: args.email,
-                    password: encryptedPassword,
-                  };
-
-                  //Save the owner and restaurant in the database
-                  Customers.create(userData, function (err, user) {
-                    if (err) {
-                      console.log(err);
-                      console.log('unable to update user to owner');
-                      let result = {
-                        cookie1: null,
-                        cookie2: null,
-                        cookie3: null,
-                        cookie4: null,
-                        status: 400,
-                        message: 'Database Error',
-                      };
-                      resolve(result);
-                    } else {
-                      console.log('Customer Added');
-                      let result = {
-                        cookie1: 'customercookie',
-                        cookie2: args.email,
-                        cookie3: args.firstname,
-                        cookie4: args.lastname,
-                        status: 200,
-                        message: 'Customer added succesfully',
-                      };
-                      resolve(result);
-                    }
-                  });
-                });
-              }
-            }
-          });
-        });
+        return restaurantProfile(args);
       },
     },
-    ownerLogin: {
-      type: OwnerLoginType,
+
+    addReview: {
+      type: StatusType,
       args: {
-        email: { type: GraphQLString },
-        password: { type: GraphQLString },
+        restaurant_id: { type: GraphQLString },
+        customer_id: { type: GraphQLString },
+        review_text: { type: GraphQLString },
+        review_rating: { type: GraphQLInt },
       },
       resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          Owners.findOne({ email: args.email }, function (err, user) {
-            if (err) {
-              console.log(err);
-              console.log('unable to read the database');
-              let result = {
-                message: 'unable to read the database',
-                cookie1: null,
-                cookie2: null,
-                cookie3: null,
-                cookie4: null,
-                status: 400,
-              };
+        return addReview(args);
+      },
+    },
 
-              resolve(result);
-            } else if (user) {
-              console.log('Owner:', user);
-              crypt.compareHash(
-                args.password,
-                user.password,
-                function (err, isMatch) {
-                  if (isMatch && !err) {
-                    console.log('Owner Login Successful');
-                    let result = {
-                      message: 'Owner Login Successful',
-                      cookie1: 'ownercookie',
-                      cookie2: args.email,
-                      cookie3: user.first_name,
-                      cookie4: user.last_name,
-                      status: 200,
-                    };
-                    resolve(result);
-                  } else {
-                    let result = {
-                      message: 'Authentication failed. Passwords did not match',
-                      cookie1: null,
-                      cookie2: null,
-                      cookie3: null,
-                      cookie4: null,
-                      status: 401,
-                    };
-                    console.log(
-                      'Authentication failed. Passwords did not match'
-                    );
-                    resolve(result);
-                  }
-                }
-              );
-            } else {
-              console.log('Authentication failed. Owner does not exist.');
-              let result = {
-                message: 'Authentication failed. Owner does not exist.',
-                cookie1: null,
-                cookie2: null,
-                cookie3: null,
-                cookie4: null,
-                status: 402,
-              };
-              resolve(result);
-            }
-          });
-        });
-      },
-    },
-    customerLogin: {
-      type: CustomerLoginType,
-      args: {
-        email: { type: GraphQLString },
-        password: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          Customers.findOne({ email: args.email }, function (err, user) {
-            if (err) {
-              console.log(err);
-              console.log('unable to read the database');
-              let result = {
-                message: 'unable to read the database',
-                cookie1: null,
-                cookie2: null,
-                cookie3: null,
-                cookie4: null,
-                status: 400,
-              };
-              resolve(result);
-            } else if (user) {
-              console.log('customer:', user);
-              crypt.compareHash(
-                args.password,
-                user.password,
-                function (err, isMatch) {
-                  if (isMatch && !err) {
-                    console.log('Customer Login Successful');
-                    let result = {
-                      message: 'Customer Login Successful',
-                      cookie1: 'customercookie',
-                      cookie2: args.email,
-                      cookie3: user.first_name,
-                      cookie4: user.last_name,
-                      status: 200,
-                    };
-                    resolve(result);
-                  } else {
-                    console.log(
-                      'Authentication failed. Passwords did not match'
-                    );
-                    let result = {
-                      message: 'Authentication failed. Passwords did not match',
-                      cookie1: null,
-                      cookie2: null,
-                      cookie3: null,
-                      cookie4: null,
-                      status: 402,
-                    };
-                    resolve(result);
-                  }
-                }
-              );
-            } else {
-              console.log('Authentication failed. User does not exist.');
-              let result = {
-                message: 'Authentication failed. Customer does not exist.',
-                cookie1: null,
-                cookie2: null,
-                cookie3: null,
-                cookie4: null,
-                status: 402,
-              };
-              resolve(result);
-            }
-          });
-        });
-      },
-    },
-    customerProfileSave: {
-      type: CustomerProfileType,
-      args: {
-        firstname: { type: GraphQLString },
-        lastname: { type: GraphQLString },
-        email: { type: GraphQLString },
-        phone: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          var userData = {
-            first_name: args.firstname,
-            last_name: args.lastname,
-            phone_number: args.phone,
-          };
-          Customers.findOneAndUpdate(
-            { email: args.email },
-            userData,
-            { new: true },
-            function (err, customer) {
-              if (err) {
-                console.log(err);
-                console.log('unable to update database');
-                let result = {
-                  message: 'unable to update database',
-                  status: 400,
-                };
-                resolve(result);
-              } else {
-                console.log('result:', customer);
-                console.log('Customer Profile save Successful');
-                let result = {
-                  customerId: customer._id,
-                  firstname: customer.first_name,
-                  lastname: customer.last_name,
-                  email: customer.email,
-                  phone: customer.phone_number,
-                  status: 200,
-                  message: 'Customer Profile save Successful',
-                };
-                resolve(result);
-              }
-            }
-          );
-        });
-      },
-    },
-    ownerProfileSave: {
-      type: OwnerProfileType,
-      args: {
-        firstname: { type: GraphQLString },
-        lastname: { type: GraphQLString },
-        email: { type: GraphQLString },
-        phone: { type: GraphQLString },
-        rname: { type: GraphQLString },
-        cuisine: { type: GraphQLString },
-        zipcode: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          var ownerData = {
-            first_name: args.firstname,
-            last_name: args.lastname,
-            phone_number: args.phone,
-          };
-
-          var restaurantData = {
-            restaurant_name: args.rname,
-            cuisine: args.cuisine,
-            email: args.email,
-            zip_code: args.zipcode,
-          };
-          Owners.findOneAndUpdate(
-            { email: args.email },
-            ownerData,
-            { new: true },
-            function (err, owner) {
-              if (err) {
-                console.log(err);
-                console.log('unable to update database');
-                let result = {
-                  message: 'unable to update database',
-                  status: 400,
-                };
-                resolve(result);
-              } else {
-                console.log('result:', owner);
-                console.log('Owner Profile save Successful');
-
-                Restaurants.findOneAndUpdate(
-                  { email: args.email },
-                  restaurantData,
-                  { new: true },
-                  function (err, restaurant) {
-                    if (err) {
-                      console.log(err);
-                      console.log('unable to update database');
-                      let result = {
-                        message: 'unable to update database',
-                        status: 400,
-                      };
-                      resolve(result);
-                    } else {
-                      console.log('result:', restaurant);
-                      console.log('Restaurant details Successfully updated');
-                      let result = {
-                        ownerId: owner._id,
-                        firstname: owner.first_name,
-                        lastname: owner.last_name,
-                        email: owner.email,
-                        phone: owner.phone_number,
-                        rname: restaurant.restaurant_name,
-                        cuisine: restaurant.cuisine,
-                        zipcode: restaurant.zip_code,
-                        restaurantId: restaurant._id,
-                        status: 200,
-                        message: 'Owner/Rest successfully updated',
-                      };
-                      resolve(result);
-                    }
-                  }
-                );
-              }
-            }
-          );
-        });
-      },
-    },
-    addSection: {
-      type: OwnerSectionType,
-      args: {
-        email: { type: GraphQLString },
-        section_name: { type: GraphQLString },
-      },
-      resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          console.log('%%%');
-          var sectionData = {
-            section_name: args.section_name,
-            email: args.email,
-            items: [],
-          };
-          Sections.findOne(
-            { section_name: args.section_name },
-            function (err, rows) {
-              if (err) {
-                console.log(err);
-                console.log('unable to read the database');
-                let result = {
-                  status: 400,
-                  message: 'Database Error',
-                };
-                resolve(result);
-              } else {
-                console.log('rows', rows);
-                if (rows) {
-                  console.log('Section already exists');
-                  let result = {
-                    _id: rows._id,
-                    section_name: rows.section_name,
-                    email: rows.email,
-                    items: rows.items,
-                    status: 401,
-                    message: 'Section already exists',
-                  };
-                  resolve(result);
-                } else {
-                  Sections.create(sectionData, function (err, section) {
-                    if (err) {
-                      console.log(err);
-                      console.log('unable to update user to owner');
-                      let result = {
-                        status: 400,
-                        message: 'Database Error',
-                      };
-                      resolve(result);
-                    } else {
-                      console.log('Section Added');
-                      let result = {
-                        _id: section._id,
-                        section_name: section.section_name,
-                        items: section.items,
-                        email: section.email,
-                        status: 200,
-                        message: 'Section Added',
-                      };
-                      resolve(result);
-                    }
-                  });
-                }
-              }
-            }
-          );
-        });
-      },
-    },
     addItem: {
-      type: OwnerSectionType,
+      type: StatusType,
       args: {
-        email: { type: GraphQLString },
-        section_name: { type: GraphQLString },
-        itemName: { type: GraphQLString },
-        itemDescription: { type: GraphQLString },
-        price: { type: GraphQLString },
+        item_category: { type: GraphQLString },
+        restaurant_id: { type: GraphQLString },
+        item_id: { type: GraphQLString },
+        item_name: { type: GraphQLString },
+        item_description: { type: GraphQLString },
+        item_price: { type: GraphQLString },
+        item_image: { type: GraphQLString },
+        item_ingredients: { type: GraphQLString },
       },
       resolve(parent, args) {
-        return new Promise((resolve, reject) => {
-          var itemData = {
-            itemName: args.itemName,
-            itemDescription: args.itemDescription,
-            price: args.price,
-          };
-          Sections.findOne(
-            { email: args.email, section_name: args.section_name },
-            function (err, rows) {
-              if (err) {
-                console.log(err);
-                console.log('unable to read the database');
-                let result = {
-                  status: 400,
-                  message: 'Database Error',
-                };
-                resolve(result);
-              } else {
-                console.log('rows', rows);
-                if (rows) {
-                  console.log('Section exists');
-                  rows.items.push(itemData);
-                  rows.save(function (err, section) {
-                    if (err) {
-                      console.log(err);
-                      console.log('unable to update database');
-                      let result = {
-                        status: 400,
-                        message: 'Database Error',
-                      };
-                      resolve(result);
-                    } else {
-                      console.log('result:', section);
-                      console.log('Item Profile save Successful');
-                      let result = {
-                        _id: section._id,
-                        section_name: section.section_name,
-                        email: section.email,
-                        items: section.items,
-                        status: 200,
-                        message: 'Item included successfully',
-                      };
-                      resolve(result);
-                    }
-                  });
-                } else {
-                  let result = {
-                    status: 401,
-                    message: 'Section not available',
-                  };
-                  resolve(result);
-                }
-              }
-            }
-          );
-        });
+        return addItem(args);
+      },
+    },
+
+    placeOrder: {
+      type: StatusType,
+      args: {
+        order_type: { type: GraphQLString },
+        order_status: { type: GraphQLString },
+        order_cost: { type: GraphQLFloat },
+        order_delivery_status: { type: GraphQLString },
+        restaurant_id: { type: GraphQLString },
+        customer_id: { type: GraphQLString },
+      },
+      resolve(parent, args) {
+        return placeOrder(args);
+      },
+    },
+
+    updateDeliveryStatus: {
+      type: StatusType,
+      args: {
+        order_id: { type: GraphQLString },
+        order_delivery_status: { type: GraphQLString },
+      },
+      resolve(parent, args) {
+        return updateDeliveryStatus(args);
+      },
+    },
+
+    updateOrderStatus: {
+      type: StatusType,
+      args: {
+        order_id: { type: GraphQLString },
+        order_status: { type: GraphQLString },
+      },
+      resolve(parent, args) {
+        return updateOrderStatus(args);
       },
     },
   },
-});*/
+});
 
 module.exports = new GraphQLSchema({
   query: RootQuery,

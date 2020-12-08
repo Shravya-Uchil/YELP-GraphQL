@@ -22,18 +22,21 @@ const customerSignup = async (args) => {
 };
 
 const restaurantSignup = async (args) => {
+  let restaurant = await Restaurant.find({ email_id: args.email_id });
+  if (restaurant.length) {
+    return { status: 400, message: 'RESTAURANT_EXISTS' };
+  }
+
   let hashedPassword = passwordHash.generate(args.password);
   let newRestaurant = new Restaurant({
     restaurant_name: args.restaurant_name,
     email_id: args.email_id,
     password: hashedPassword,
-    location: args.location,
+    zip_code: args.zip_code,
+    lat: args.lat,
+    lng: args.lng,
   });
 
-  let restaurant = await Restaurant.find({ email_id: args.email_id });
-  if (restaurant.length) {
-    return { status: 400, message: 'RESTAURANT_EXISTS' };
-  }
   let savedRestaurant = await newRestaurant.save();
   if (savedRestaurant) {
     return { status: 200, message: 'RESTAURANT_ADDED' };

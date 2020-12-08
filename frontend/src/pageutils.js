@@ -1,6 +1,6 @@
 export function getPageCount(length, size = 4) {
   let count = 1;
-  if (length % 4 == 0) {
+  if (length % 4 === 0) {
     count = length / 4;
   } else {
     count = length / 4 + 1;
@@ -12,10 +12,10 @@ export function getPageObjects(curPage, objects) {
   if (objects && objects.length === 0) {
     return [];
   }
-  console.log("paginate");
+  console.log('paginate');
   let start = 4 * (curPage - 1);
   let end = start + 4;
-  console.log("start: ", start, ", end: ", end);
+  console.log('start: ', start, ', end: ', end);
   let displayObjects = [];
   if (end > objects.length) {
     end = objects.length;
